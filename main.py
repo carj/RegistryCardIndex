@@ -236,6 +236,7 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
         query = Query()
         result = db.search(query.folder == norm_path)
         if len(result) > 0:
+            print("")
             print("Folder " + folder + " has already been processed. Skipping ....")
             return
 
