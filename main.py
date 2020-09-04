@@ -239,6 +239,7 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
             print("Folder " + folder + " has already been processed. Skipping ....")
             return
 
+        print("")
         print("Processing: " + folder + " ...")
 
         access_key, secret_key, session_token, source_type, endpoint = session_key(server, bucket_name, username,
