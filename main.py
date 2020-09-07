@@ -246,7 +246,7 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
         access_key, secret_key, session_token, source_type, endpoint = session_key(server, bucket_name, username,
                                                                                    password,
                                                                                    aeskey)
-        xip, all_files = xml_document(security_tag, parent_ref, folder, file_suffix)
+        xip, all_files = xml_document(security_tag, parent_ref, folder, file_suffix, content_description)
 
         package_id = shortuuid.ShortUUID().random(length=6)
 
