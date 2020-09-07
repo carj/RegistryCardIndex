@@ -23,6 +23,7 @@ import requests
 from pyPreservica import EntityAPI
 from requests.auth import HTTPBasicAuth
 from tinydb import TinyDB, Query
+import shortuuid
 
 
 transfer_config = boto3.s3.transfer.TransferConfig()
@@ -232,6 +233,8 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
 
     if folder in folder_references_map:
 
+
+        ## should only compare on folder base name NOT full path
         norm_path = os.path.normpath(folder)
         query = Query()
         result = db.search(query.folder == norm_path)
@@ -248,7 +251,7 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
                                                                                    aeskey)
         xip, all_files = xml_document(security_tag, parent_ref, folder, file_suffix)
 
-        package_id = str(uuid.uuid4())
+        package_id = shortuuid.ShortUUID().random(length=6)
 
         top_level_folder = os.path.join(export_folder, package_id)
         os.mkdir(top_level_folder)
@@ -261,11 +264,13 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
         metadata.close()
         if all_files:
             for filename, ref in all_files.items():
-                src_file = os.path.join(folder, filename)
-                dst_file = os.path.join(os.path.join(inner_folder, "content"), filename)
-                shutil.copyfile(src_file, dst_file)
-        shutil.make_archive(top_level_folder, 'zip', top_level_folder)
-        shutil.rmtree(top_level_folder)
+                src_file = '\\\\?\\' + os.path.join(folder, filename)
+                dst_file = '\\\\?\\' + os.path.normpath(os.path.join(os.path.join(inner_folder, "content"), filename))
+                dist = shutil.copyfile(src_file, dst_file)
+                assert dst_file == dist
+        zip_folder = top_level_folder
+        f = shutil.make_archive(top_level_folder, 'zip', zip_folder)
+        shutil.rmtree(zip_folder)
 
         sip_path = top_level_folder + ".zip"
 
@@ -273,7 +278,7 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
                                 aws_session_token=session_token)
         s3 = session.resource(service_name="s3")
 
-        upload_key = package_id
+        upload_key = str(uuid.uuid4())
         s3_object = s3.Object(bucket_name, upload_key)
         metadata = dict()
         metadata['key'] = upload_key
