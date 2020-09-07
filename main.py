@@ -25,11 +25,9 @@ from requests.auth import HTTPBasicAuth
 from tinydb import TinyDB, Query
 import shortuuid
 
-
 transfer_config = boto3.s3.transfer.TransferConfig()
 
 number_ingests = 0
-
 
 
 class ProgressPercentage(object):
@@ -215,7 +213,6 @@ def make_dir_if_not_exists(client, name, parent, security_tag):
 
 
 def ingest_folder(folder, security_tag, folder_references_map, config):
-
     global number_ingests
 
     parent_ref = folder_references_map[folder]
@@ -228,11 +225,11 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
     export_folder = config['credentials']['export_folder']
     max_ingest = int(config['credentials']['max_ingest'])
     tinydb_path = config['credentials']['tinydb_path']
+    content_description = config['credentials']['content_description']
 
     db = TinyDB(tinydb_path)
 
     if folder in folder_references_map:
-
 
         ## should only compare on folder base name NOT full path
         norm_path = os.path.normpath(folder)
@@ -294,7 +291,8 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
 
         db_data = {"folder": norm_path, "key": upload_key, "parent_ref": parent_ref}
 
-        s3_object.upload_file(sip_path, Callback=ProgressPercentage(sip_path), ExtraArgs=metadata, Config=transfer_config)
+        s3_object.upload_file(sip_path, Callback=ProgressPercentage(sip_path), ExtraArgs=metadata,
+                              Config=transfer_config)
 
         os.remove(sip_path)
 
@@ -337,7 +335,7 @@ def main():
     walk_directories(folder_root, client, parent_reference, security_tag, folder_references_map, file_suffix, config)
 
 
-def xml_document(security_tag, parent_reference, directory_assets, file_suffix):
+def xml_document(security_tag, parent_reference, directory_assets, file_suffix, content_description):
     xip = Element('XIP')
     xip.set('xmlns', 'http://preservica.com/XIP/v6.0')
     all_files = dict()
@@ -348,9 +346,9 @@ def xml_document(security_tag, parent_reference, directory_assets, file_suffix):
         for key, value in preservation_refs_dict.items():
             all_files[key] = value
         if preservation_refs_dict:
-            make_content_objects(xip, preservation_refs_dict, asset_id, security_tag, "PDF Document", "")
+            make_content_objects(xip, preservation_refs_dict, asset_id, security_tag, content_description, "")
         if preservation_refs_dict:
-            make_generation(xip, preservation_refs_dict, "PDF Document")
+            make_generation(xip, preservation_refs_dict, content_description)
         if preservation_refs_dict:
             make_bitstream(xip, preservation_refs_dict, directory_assets)
     return xip, all_files
