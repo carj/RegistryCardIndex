@@ -29,6 +29,8 @@ transfer_config = boto3.s3.transfer.TransferConfig()
 
 number_ingests = 0
 
+KARDEX = "KARDEX"
+
 
 class ProgressPercentage(object):
 
@@ -148,7 +150,7 @@ def prettify(elem):
     return reparsed.toprettyxml(indent="  ")
 
 
-def create_asset(xip, security_tag, parent_reference, name):
+def create_asset(xip, security_tag, parent_reference, name, file_name):
     io = SubElement(xip, 'InformationObject')
     ref = SubElement(io, 'Ref')
     ref.text = str(uuid.uuid4())
@@ -156,7 +158,7 @@ def create_asset(xip, security_tag, parent_reference, name):
     title = SubElement(io, 'Title')
     title.text = name
     description = SubElement(io, 'Description')
-    description.text = name
+    description.text = file_name
     security = SubElement(io, 'SecurityTag')
     security.text = security_tag
     custom_type = SubElement(io, 'CustomType')
@@ -195,20 +197,20 @@ def make_dir_if_not_exists(client, name, parent, security_tag):
     identifiers = client.identifiers_for_entity(parent_folder)
     if len(identifiers) == 1:
         identifier = identifiers.pop()
-        if identifier[0] == "KARDEX":
+        if identifier[0] == KARDEX:
             identifier_prefix = identifier[1]
 
     if identifier_prefix != "":
         ident_key = identifier_prefix + "\\" + name
 
-    result = client.identifier("KARDEX", ident_key)
+    result = client.identifier(KARDEX, ident_key)
     if result:
         assert len(result) == 1
         entity = result.pop()
         return entity.reference
     else:
         folder = client.create_folder(title=name, description=name, security_tag=security_tag, parent=parent)
-        client.add_identifier(folder, "KARDEX", ident_key)
+        client.add_identifier(folder, KARDEX, ident_key)
         return folder.reference
 
 
@@ -216,6 +218,7 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
     global number_ingests
 
     parent_ref = folder_references_map[folder]
+
     username = config['credentials']['username']
     bucket_name = config['credentials']['bucket']
     password = config['credentials']['password']
@@ -294,9 +297,9 @@ def ingest_folder(folder, security_tag, folder_references_map, config):
         s3_object.upload_file(sip_path, Callback=ProgressPercentage(sip_path), ExtraArgs=metadata,
                               Config=transfer_config)
 
-        os.remove(sip_path)
-
         db.insert(db_data)
+
+        os.remove(sip_path)
 
         number_ingests = number_ingests + 1
 
@@ -339,10 +342,28 @@ def xml_document(security_tag, parent_reference, directory_assets, file_suffix, 
     xip = Element('XIP')
     xip.set('xmlns', 'http://preservica.com/XIP/v6.0')
     all_files = dict()
-    pdf_files = [f for f in listdir(directory_assets) if isfile(join(directory_assets, f)) and f.endswith(file_suffix)]
-    for pdf in pdf_files:
-        asset_id = create_asset(xip, security_tag, parent_reference, pdf)
-        preservation_refs_dict = make_representation(xip, "Preservation", "Preservation", pdf, asset_id)
+    asset_files = [f for f in listdir(directory_assets) if isfile(join(directory_assets, f)) and f.endswith(file_suffix)]
+
+    import re
+
+    for name in asset_files:
+
+        if file_suffix.endswith(".pdf"):
+
+            index = 0
+            for match in re.finditer(re.escape("-"), name):
+                start = match.start()
+                end = match.end()
+                index = index + 1
+                if index == 4:
+                    asset_name = name[end:].strip()
+            asset_name = asset_name.replace(file_suffix, "")
+        else:
+            asset_name = name
+
+        asset_id = create_asset(xip, security_tag, parent_reference, asset_name, name)
+
+        preservation_refs_dict = make_representation(xip, "Preservation", "Preservation", name, asset_id)
         for key, value in preservation_refs_dict.items():
             all_files[key] = value
         if preservation_refs_dict:
