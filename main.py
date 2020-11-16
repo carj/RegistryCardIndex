@@ -349,7 +349,7 @@ def xml_document(security_tag, parent_reference, directory_assets, file_suffix, 
     for name in asset_files:
 
         if file_suffix.endswith(".pdf"):
-
+            asset_name = name
             index = 0
             for match in re.finditer(re.escape("-"), name):
                 start = match.start()
