@@ -24,6 +24,7 @@ from pyPreservica import EntityAPI
 from requests.auth import HTTPBasicAuth
 from tinydb import TinyDB, Query
 import shortuuid
+import re
 
 transfer_config = boto3.s3.transfer.TransferConfig()
 
@@ -342,11 +343,15 @@ def xml_document(security_tag, parent_reference, directory_assets, file_suffix, 
     xip = Element('XIP')
     xip.set('xmlns', 'http://preservica.com/XIP/v6.0')
     all_files = dict()
-    asset_files = [f for f in listdir(directory_assets) if isfile(join(directory_assets, f)) and f.endswith(file_suffix)]
-
-    import re
+    asset_files = [f for f in listdir(directory_assets) if
+                   isfile(join(directory_assets, f)) and f.endswith(file_suffix)]
 
     for name in asset_files:
+
+        asset_name = name
+
+        if file_suffix.endswith(".jpg"):
+            asset_name = name.replace(file_suffix, "")
 
         if file_suffix.endswith(".pdf"):
             asset_name = name
@@ -358,8 +363,6 @@ def xml_document(security_tag, parent_reference, directory_assets, file_suffix, 
                 if index == 4:
                     asset_name = name[end:].strip()
             asset_name = asset_name.replace(file_suffix, "")
-        else:
-            asset_name = name
 
         asset_id = create_asset(xip, security_tag, parent_reference, asset_name, name)
 
